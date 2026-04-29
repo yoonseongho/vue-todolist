@@ -2,7 +2,12 @@
   <div id="app">
     <TodoHeader></TodoHeader>
     <TodoInput v-on:addTodo="addTodo"></TodoInput>
-    <TodoList v-bind:propsdata="todoItems" @removeTodo="removeTodo"></TodoList>
+    <TodoList 
+      v-bind:propsdata="todoItems" 
+      @removeTodo="removeTodo" 
+      @toggleComplete="toggleComplete"
+      @editTodo="editTodo"
+    ></TodoList>
     <TodoFooter v-on:removeAll="clearAll"></TodoFooter>
   </div>
 </template>
@@ -25,19 +30,54 @@ export default {
       this.todoItems = [];
     },
     addTodo(todoItem) {
-      localStorage.setItem(todoItem, todoItem);
-      this.todoItems.push(todoItem);
+      const obj = { completed: false, item: todoItem };
+      localStorage.setItem(todoItem, JSON.stringify(obj));
+      this.todoItems.push(obj);
+      this.sortTodoItems();
     },
     removeTodo(todoItem, index) {
-      localStorage.removeItem(todoItem);
+      localStorage.removeItem(todoItem.item);
       this.todoItems.splice(index, 1);
     },
+    toggleComplete(todoItem, index) {
+      this.todoItems[index].completed = !this.todoItems[index].completed;
+      localStorage.removeItem(todoItem.item);
+      localStorage.setItem(todoItem.item, JSON.stringify(this.todoItems[index]));
+      this.sortTodoItems();
+    },
+    editTodo(todoItem, index, newText) {
+      localStorage.removeItem(todoItem.item);
+      this.todoItems[index].item = newText;
+      localStorage.setItem(newText, JSON.stringify(this.todoItems[index]));
+      this.sortTodoItems();
+    },
+    sortTodoItems() {
+      this.todoItems.sort((a, b) => {
+        if (a.completed === b.completed) return 0;
+        return a.completed ? 1 : -1;
+      });
+    }
   },
   created() {
     if (localStorage.length > 0) {
       for (var i = 0; i < localStorage.length; i++) {
-        this.todoItems.push(localStorage.key(i));
+        const key = localStorage.key(i);
+        if (key === 'loglevel:webpack-dev-server') continue;
+        
+        try {
+          const item = JSON.parse(localStorage.getItem(key));
+          if (item && typeof item === 'object' && 'item' in item) {
+            this.todoItems.push(item);
+          } else {
+            const obj = { completed: false, item: key };
+            this.todoItems.push(obj);
+          }
+        } catch (e) {
+          const obj = { completed: false, item: key };
+          this.todoItems.push(obj);
+        }
       }
+      this.sortTodoItems();
     }
   },
   components: {
